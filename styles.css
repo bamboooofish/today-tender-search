@@ -368,9 +368,6 @@ a:hover {
     padding: 15px;
   }
   .panel-content {
-    margin-inline: 36px;
-  }
-  #listContent {
     margin-inline: 0;
   }
   #listContent table {
