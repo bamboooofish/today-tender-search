@@ -104,13 +104,11 @@ textarea {
   align-items: center;
   gap: 10px;
 }
-.section-header-controls .collapse-toggle {
-  transform: translateX(10px);
-}
 .collapse-toggle {
   display: inline-flex;
   width: 32px;
   height: 32px;
+  transform: translateX(10px);
   align-items: center;
   justify-content: center;
   border: 0;
@@ -139,6 +137,9 @@ textarea {
 }
 .step-description {
   margin: 4px 0 0 36px !important;
+}
+.filter-help-mobile {
+  display: none;
 }
 .step-meta {
   display: block;
@@ -347,6 +348,15 @@ a:hover {
 }
 
 @media (max-width: 720px) {
+  .site-header p {
+    display: none;
+  }
+  .filter-help-desktop {
+    display: none;
+  }
+  .filter-help-mobile {
+    display: inline;
+  }
   .field-grid {
     grid-template-columns: 1fr;
   }
