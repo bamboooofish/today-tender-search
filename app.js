@@ -164,7 +164,7 @@
       setDataset({
         date: expectedDate,
         items: [],
-        message: '今日清單載入失敗：' + (error.message || '請稍後再試。'),
+        message: '今日清單載入失敗，請稍後再試。',
       });
     }
   }
@@ -694,7 +694,7 @@
             const message =
               error && error.name === 'AbortError'
                 ? '查詢逾時，請稍後再試。'
-                : error.message || '查詢失敗。';
+                : '此標案詳細資料暫時無法載入，請稍後再試。';
             card.status.textContent = message;
             card.status.classList.add('status-error');
             card.pre.textContent =
@@ -716,7 +716,7 @@
       const message =
         error && error.name === 'AbortError'
           ? '查詢逾時，請稍後再試。'
-          : error.message || '查詢失敗。';
+          : '標案詳細資料暫時無法載入，請稍後再試。';
       cards.forEach((card) => {
         card.status.textContent = message;
         card.status.classList.add('status-error');
