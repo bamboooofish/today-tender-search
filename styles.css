@@ -409,6 +409,7 @@ a:hover {
   }
   .header-inner h1 {
     font-size: 22px;
+    text-align: center;
   }
   td:nth-child(4) {
     min-width: 220px;

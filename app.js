@@ -326,7 +326,7 @@
           APPS_SCRIPT_URL,
         )
       ) {
-        reject(new Error('尚未在 app.js 設定 Apps Script 部署網址。'));
+        reject(new Error('尚未設定部署網址。'));
         return;
       }
 
@@ -365,9 +365,9 @@
         resolve(payload);
       };
       script.onerror = () =>
-        fail(new Error('無法連線到 Apps Script，請確認部署網址和存取權限。'));
+        fail(new Error('無法連線到，請確認部署網址和存取權限。'));
       timeoutId = window.setTimeout(
-        () => fail(new Error('Apps Script 回應逾時，請稍後再試。')),
+        () => fail(new Error('回應逾時，請稍後再試。')),
         30000,
       );
       script.src = endpoint.toString();
@@ -508,7 +508,7 @@
     const records = getApiRecords(payload);
     if (!records.length) {
       if (payload && payload.detail) return payload;
-      throw new Error('API 沒有回傳公告內容。');
+      throw new Error('沒有回傳公告內容。');
     }
     const filename = normalize(apiIndexRecord.filename);
     if (filename) {
@@ -525,7 +525,7 @@
       return !recordDate || recordDate === dateKey;
     });
     if (!candidates.length) {
-      throw new Error('API 沒有回傳相符日期的公告版本。');
+      throw new Error('沒有回傳相符日期的公告版本。');
     }
     const expectedType = comparableText(getApiType(apiIndexRecord));
     // The type is a fallback disambiguator; keep the single date match even if labels differ.
@@ -634,7 +634,7 @@
   }
 
   async function loadDetailsFor(item, apiRecord) {
-    if (!apiRecord.unit_id) throw new Error('API 清單沒有提供此案的機關代碼。');
+    if (!apiRecord.unit_id) throw new Error('沒有此案的機關代碼。');
     const payload = await requestApi('tender', {
       unit_id: apiRecord.unit_id,
       job_number: apiRecord.job_number || item.id,
@@ -652,8 +652,7 @@
     byId('detailResults').replaceChildren();
     byId('copyDetails').disabled = true;
     byId('fetchDetails').disabled = true;
-    byId('detailsStatus').textContent =
-      '正在比對今日 API 清單並查詢 ' + items.length + ' 件標案…';
+    byId('detailsStatus').textContent = '正在查詢 ' + items.length + ' 件標案…';
     byId('detailsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
     const cards = items.map(createDetailCard);
 
@@ -661,8 +660,7 @@
       const dateKey = state.date.replace(/-/g, '');
       const dailyPayload = await requestApi('listbydate', { date: dateKey });
       const apiRecords = getApiRecords(dailyPayload);
-      if (!apiRecords.length)
-        throw new Error('API 尚未提供今日的標案索引資料。');
+      if (!apiRecords.length) throw new Error('無今日的標案索引資料。');
 
       let cursor = 0;
       let completed = 0;
@@ -717,8 +715,8 @@
     } catch (error) {
       const message =
         error && error.name === 'AbortError'
-          ? 'API 查詢逾時，請稍後再試。'
-          : error.message || 'API 查詢失敗。';
+          ? '查詢逾時，請稍後再試。'
+          : error.message || '查詢失敗。';
       cards.forEach((card) => {
         card.status.textContent = message;
         card.status.classList.add('status-error');
@@ -764,7 +762,7 @@
     const rows = state.items.filter(isVisible);
     if (!rows.length) return;
     if (!window.XLSX) {
-      window.alert('Excel 元件尚未載入，請重新整理後再試。');
+      window.alert('元件尚未載入，請重新整理後再試。');
       return;
     }
 
