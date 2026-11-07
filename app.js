@@ -164,7 +164,7 @@
       setDataset({
         date: expectedDate,
         items: [],
-        message: '今日清單載入失敗，請稍後再試。',
+        message: '清單載入失敗，或非上班日無標案資訊。',
       });
     }
   }
