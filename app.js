@@ -132,8 +132,7 @@
     };
     byId('detailResults').replaceChildren();
     byId('copyDetails').disabled = true;
-    byId('detailsStatus').textContent =
-      '請選擇欲查詢的標案後，按「查詢詳細資訊」';
+    byId('detailsStatus').textContent = '請先選擇標案';
     byId('fetchDetails').disabled = true;
     render();
   }
@@ -290,8 +289,7 @@
     byId('detailResults').replaceChildren();
     state.detailTexts = [];
     byId('copyDetails').disabled = true;
-    byId('detailsStatus').textContent =
-      '請選擇欲查詢的標案後，按「查詢詳細資訊」';
+    byId('detailsStatus').textContent = '請先選擇標案';
     render();
   }
 
@@ -314,8 +312,7 @@
     state.detailTexts = [];
     byId('detailResults').replaceChildren();
     byId('copyDetails').disabled = true;
-    byId('detailsStatus').textContent =
-      '請選擇欲查詢的標案後，按「查詢詳細資訊」';
+    byId('detailsStatus').textContent = '';
     render();
   }
 
