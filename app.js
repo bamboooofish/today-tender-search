@@ -1146,7 +1146,7 @@
 
   async function copyDetails() {
     if (!state.detailTexts.length) return;
-    const text = state.detailTexts.join('\n');
+    const text = state.detailTexts.join('\n\n');
     let copied = false;
     try {
       await navigator.clipboard.writeText(text);
