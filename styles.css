@@ -449,6 +449,7 @@ input:focus-visible {
 }
 .result-tab {
   min-height: 40px;
+  font-size: 14.5px;
 }
 .result-tabs .result-tab:first-child {
   padding-left: 0;
