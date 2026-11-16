@@ -1090,7 +1090,7 @@
             const fields = await loadDetailsFor(item, apiRecord);
             const text = formatDetails(fields);
             state.detailTexts[index] = [
-              '### ' + card.heading.textContent,
+              card.heading.textContent,
               fields.agency,
               fields.unit,
               fields.budget,
@@ -1100,7 +1100,7 @@
               fields.url,
             ]
               .filter((value) => value && value !== '未提供')
-              .join('\n\n');
+              .join('\n');
             card.status.hidden = true;
             card.pre.textContent = text;
             card.urlLink.href = fields.url;
@@ -1146,7 +1146,7 @@
 
   async function copyDetails() {
     if (!state.detailTexts.length) return;
-    const text = state.detailTexts.join('\n\n');
+    const text = state.detailTexts.join('\n');
     let copied = false;
     try {
       await navigator.clipboard.writeText(text);
