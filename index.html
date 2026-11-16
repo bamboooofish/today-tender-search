@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="查詢、篩選今日政府招標公告，並按需查看標案詳細資訊。"
+      content="查詢、篩選今日與近 14 天政府招標公告，並按需查看標案詳細資訊。"
     />
     <title>今日政府標案查詢</title>
     <link rel="stylesheet" href="./styles.css" />
@@ -22,7 +22,7 @@
     <header class="site-header">
       <div class="header-inner">
         <h1>今日政府標案查詢</h1>
-        <p>僅顯示今日公告的招標資訊，標案詳細資訊可在選取標案後查詢</p>
+        <p>可查詢今日或近 14 天公告，並透過多組條件整理標案資訊</p>
       </div>
     </header>
 
@@ -35,8 +35,7 @@
               ><span class="step-title">篩選條件</span>
             </h2>
             <p class="muted step-description">
-              <span class="filter-help-desktop"
-                >每個欄位可輸入多個關鍵字，以逗號、頓號或換行分隔</span
+              <span class="filter-help-desktop">每個欄位可輸入多個關鍵字，以逗號、頓號或換行分隔</span
               ><span class="filter-help-mobile">以 , 分隔關鍵字</span>
             </p>
           </div>
@@ -67,67 +66,55 @@
               role="status"
               aria-live="polite"
             ></span>
+            <button
+              class="button button-secondary local-test-dismiss"
+              id="hideLocalTestTools"
+              type="button"
+            >
+              隱藏
+            </button>
           </div>
           <!-- LOCAL-ONLY:END -->
 
-          <div class="filter-group">
-            <h3>包含條件</h3>
-            <div class="field-grid">
-              <div class="field">
-                <textarea
-                  id="titleInclude"
-                  rows="3"
-                  placeholder="標案名稱"
-                  aria-label="包含條件：標案名稱"
-                ></textarea>
+          <div class="date-filter" aria-labelledby="dateFilterTitle">
+            <h3 id="dateFilterTitle">公告時間</h3>
+            <div class="date-mode-row">
+              <div class="segmented-control" role="group" aria-label="公告時間範圍">
+                <button class="segment-button is-active" type="button" data-date-mode="today" aria-pressed="true">今日</button>
+                <button class="segment-button" type="button" data-date-mode="last14" aria-pressed="false">近14天</button>
+                <button class="segment-button" type="button" data-date-mode="custom" aria-pressed="false">指定日期</button>
               </div>
-              <div class="field">
-                <textarea
-                  id="agencyInclude"
-                  rows="3"
-                  placeholder="機關名稱"
-                  aria-label="包含條件：機關名稱"
-                ></textarea>
-              </div>
+            </div>
+            <div id="customDateRange" class="date-range-inputs" hidden>
+              <label><span class="visually-hidden">開始日期</span><input id="dateFrom" type="date" /></label>
+              <span aria-hidden="true">至</span>
+              <label><span class="visually-hidden">結束日期</span><input id="dateTo" type="date" /></label>
             </div>
           </div>
 
           <div class="filter-group">
-            <h3>排除條件</h3>
-            <div class="field-grid">
-              <div class="field">
-                <textarea
-                  id="titleExclude"
-                  rows="3"
-                  placeholder="標案名稱"
-                  aria-label="排除條件：標案名稱"
-                ></textarea>
-              </div>
-              <div class="field">
-                <textarea
-                  id="agencyExclude"
-                  rows="3"
-                  placeholder="機關名稱"
-                  aria-label="排除條件：機關名稱"
-                ></textarea>
-              </div>
+            <div class="filter-group-heading">
+              <h3>查詢組合</h3>
+              <div id="filterGroupTabs" class="filter-group-tabs" role="tablist" aria-label="查詢組合"></div>
+              <button class="button button-outline" id="addFilterGroup" type="button">＋新增</button>
             </div>
+            <div id="filterGroupEditor"></div>
           </div>
 
           <div class="button-row button-row-center">
-            <button
-              class="button button-primary"
-              id="applyFilters"
-              type="button"
-            >
-              套用篩選
-            </button>
             <button
               class="button button-secondary"
               id="resetFilters"
               type="button"
             >
               清除篩選
+            </button>
+            <button
+              class="button button-primary"
+              id="applyFilters"
+              type="button"
+            >
+              套用篩選
             </button>
           </div>
         </div>
@@ -147,19 +134,19 @@
           <div class="section-header-controls">
             <div class="section-header-actions">
               <button
+                class="button button-secondary"
+                id="clearSelection"
+                type="button"
+              >
+                清除選取
+              </button>
+              <button
                 class="button button-primary"
                 id="downloadExcel"
                 type="button"
                 disabled
               >
                 下載表格
-              </button>
-              <button
-                class="button button-secondary"
-                id="clearSelection"
-                type="button"
-              >
-                清除選取
               </button>
             </div>
             <button
@@ -175,11 +162,13 @@
           </div>
         </div>
         <div class="panel-content" id="listContent">
+          <div id="resultTabs" class="result-tabs" role="tablist" aria-label="篩選結果"></div>
           <div class="table-scroll">
             <table>
               <thead>
                 <tr>
                   <th scope="col" class="select-column">選取</th>
+                  <th scope="col">公告日期</th>
                   <th scope="col">公告類型</th>
                   <th scope="col">機關名稱</th>
                   <th scope="col">標案名稱</th>
@@ -218,20 +207,20 @@
           <div class="section-header-controls">
             <div class="section-header-actions">
               <button
-                class="button button-primary"
-                id="fetchDetails"
-                type="button"
-                disabled
-              >
-                查詢詳細資訊
-              </button>
-              <button
                 class="button button-secondary"
                 id="copyDetails"
                 type="button"
                 disabled
               >
                 複製結果
+              </button>
+              <button
+                class="button button-primary"
+                id="fetchDetails"
+                type="button"
+                disabled
+              >
+                查詢標案
               </button>
             </div>
             <button

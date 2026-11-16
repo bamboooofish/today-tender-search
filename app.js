@@ -5,6 +5,8 @@
   const APPS_SCRIPT_URL =
     'https://script.google.com/macros/s/AKfycbz7lV7tuMMZNmATiEnY5RCfD3Tl6z0ePGUWmkNZTSQhqvoYSlk2EzM1hFaFJ6crPaHV/exec';
   const MAX_SELECTIONS = 5;
+  const MAX_FILTER_GROUPS = 5;
+  const GROUP_STORAGE_KEY = 'tender_filter_groups_v2';
   const ALLOWED_ANNOUNCEMENT_TYPES = new Set([
     '公開招標公告',
     '經公開評選或公開徵求之限制性招標公告',
@@ -27,14 +29,17 @@
   };
   const state = {
     date: '',
+    dateTo: '',
+    dateMode: 'today',
+    dateLoadVersion: 0,
+    dateLoading: false,
+    archivePromise: null,
+    archiveItems: [],
     items: [],
-    filters: {
-      titleInclude: [],
-      agencyInclude: [],
-      titleExclude: [],
-      agencyExclude: [],
-    },
-    filtersActive: false,
+    groups: [],
+    activeGroupId: '',
+    appliedGroups: [],
+    activeResultId: 'all',
     selected: new Map(),
     detailTexts: [],
     detailsLoading: false,
@@ -56,6 +61,56 @@
     return values.year + '-' + values.month + '-' + values.day;
   }
 
+  function shiftDate(value, days) {
+    const date = new Date(value + 'T00:00:00Z');
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  }
+
+  function normalizeDate(value, fallback) {
+    const text = normalize(value);
+    const match = text.match(/^(\d{4})-?(\d{2})-?(\d{2})$/);
+    if (!match) return fallback || '';
+    const iso = match[1] + '-' + match[2] + '-' + match[3];
+    const parsed = new Date(iso + 'T00:00:00Z');
+    return Number.isNaN(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== iso
+      ? fallback || ''
+      : iso;
+  }
+
+  function newFilterGroup(name) {
+    return {
+      id:
+        'group-' +
+        Date.now().toString(36) +
+        '-' +
+        Math.random().toString(36).slice(2, 7),
+      name: name || '查詢組合',
+      enabled: true,
+      titleInclude: '',
+      agencyInclude: '',
+      titleExclude: '',
+      agencyExclude: '',
+      includeJoin: 'AND',
+      excludeJoin: 'AND',
+    };
+  }
+
+  function copyGroup(group) {
+    return {
+      id: String(group.id || newFilterGroup().id),
+      name: String(group.name || '查詢組合'),
+      enabled: Boolean(group.enabled),
+      titleInclude: String(group.titleInclude || ''),
+      agencyInclude: String(group.agencyInclude || ''),
+      titleExclude: String(group.titleExclude || ''),
+      agencyExclude: String(group.agencyExclude || ''),
+      includeJoin: group.includeJoin === 'OR' ? 'OR' : 'AND',
+      excludeJoin: group.excludeJoin === 'OR' ? 'OR' : 'AND',
+    };
+  }
+
   function normalize(value) {
     return String(value == null ? '' : value)
       .normalize('NFKC')
@@ -71,6 +126,7 @@
 
   function itemKey(item) {
     return [
+      item.date,
       item.agency,
       item.id,
       item.title,
@@ -102,88 +158,429 @@
     );
   }
 
-  function readFilters() {
-    Object.keys(FILTER_STORAGE).forEach((id) => {
-      try {
-        byId(id).value = localStorage.getItem(FILTER_STORAGE[id]) || '';
-      } catch (_) {}
-      byId(id).addEventListener('input', () => {
+  function saveGroups() {
+    try {
+      localStorage.setItem(GROUP_STORAGE_KEY, JSON.stringify(state.groups));
+    } catch (_) {}
+  }
+
+  function loadGroups() {
+    let hasSavedGroups = false;
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(GROUP_STORAGE_KEY) || 'null',
+      );
+      if (Array.isArray(saved)) {
+        state.groups = saved.slice(0, MAX_FILTER_GROUPS).map(copyGroup);
+        hasSavedGroups = true;
+      }
+    } catch (_) {}
+
+    if (!hasSavedGroups) {
+      const group = newFilterGroup('查詢組合 1');
+      Object.entries(FILTER_STORAGE).forEach(([field, key]) => {
         try {
-          localStorage.setItem(FILTER_STORAGE[id], byId(id).value);
+          group[field] = localStorage.getItem(key) || '';
+          localStorage.removeItem(key);
         } catch (_) {}
       });
+      state.groups = [group];
+      saveGroups();
+    }
+    state.activeGroupId = state.groups[0] ? state.groups[0].id : '';
+  }
+
+  function deleteFilterGroup(groupId) {
+    const removedIndex = state.groups.findIndex(
+      (group) => group.id === groupId,
+    );
+    if (removedIndex < 0) return;
+    state.groups = state.groups.filter((group) => group.id !== groupId);
+    if (state.activeGroupId === groupId) {
+      state.activeGroupId = state.groups.length
+        ? state.groups[Math.min(removedIndex, state.groups.length - 1)].id
+        : '';
+    }
+    saveGroups();
+    renderGroupTabs();
+    renderGroupEditor();
+    applyFilters();
+  }
+
+  function renderGroupTabs() {
+    const tabs = byId('filterGroupTabs');
+    tabs.replaceChildren();
+    state.groups.forEach((group, index) => {
+      const tabItem = document.createElement('div');
+      tabItem.className =
+        'group-tab-item' +
+        (group.id === state.activeGroupId ? ' is-active' : '');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className =
+        'group-tab' + (group.id === state.activeGroupId ? ' is-active' : '');
+      button.setAttribute('role', 'tab');
+      button.setAttribute(
+        'aria-selected',
+        String(group.id === state.activeGroupId),
+      );
+      button.textContent = group.name || '查詢組合 ' + (index + 1);
+      button.addEventListener('click', () => {
+        state.activeGroupId = group.id;
+        renderGroupTabs();
+        renderGroupEditor();
+      });
+      tabItem.append(button);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove-group-button';
+      const removeIcon = document.createElement('span');
+      removeIcon.className = 'remove-group-icon';
+      removeIcon.setAttribute('aria-hidden', 'true');
+      removeIcon.textContent = '×';
+      remove.append(removeIcon);
+      remove.setAttribute(
+        'aria-label',
+        '刪除組合 ' + (group.name || index + 1),
+      );
+      remove.addEventListener('click', (event) => {
+        event.stopPropagation();
+        deleteFilterGroup(group.id);
+      });
+      tabItem.append(remove);
+      tabs.append(tabItem);
+    });
+    byId('addFilterGroup').disabled = state.groups.length >= MAX_FILTER_GROUPS;
+  }
+
+  function renderJoinControl(group, key) {
+    const control = document.createElement('div');
+    control.className = 'join-control';
+    ['AND', 'OR'].forEach((operator) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className =
+        'join-choice' + (group[key] === operator ? ' is-active' : '');
+      button.textContent = operator;
+      button.setAttribute('aria-pressed', String(group[key] === operator));
+      button.addEventListener('click', () => {
+        group[key] = operator;
+        saveGroups();
+        renderGroupEditor();
+        applyFilters();
+      });
+      control.append(button);
+    });
+    return control;
+  }
+
+  function renderCriteriaSection(group, heading, suffix, joinKey) {
+    const section = document.createElement('section');
+    section.className = 'filter-group';
+    const title = document.createElement('h4');
+    title.className = 'filter-group-label';
+    title.textContent = heading;
+    const fields = document.createElement('div');
+    fields.className = 'field-grid with-join';
+    const names = ['title' + suffix, 'agency' + suffix];
+    names.forEach((name) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'field';
+      const textarea = document.createElement('textarea');
+      textarea.rows = 3;
+      textarea.placeholder = name.startsWith('title') ? '標案名稱' : '機關名稱';
+      textarea.setAttribute(
+        'aria-label',
+        heading + '：' + textarea.placeholder,
+      );
+      textarea.value = group[name];
+      textarea.addEventListener('input', () => {
+        group[name] = textarea.value;
+        saveGroups();
+      });
+      wrapper.append(textarea);
+      fields.append(wrapper);
+      if (name === names[0]) fields.append(renderJoinControl(group, joinKey));
+    });
+    section.append(title, fields);
+    return section;
+  }
+
+  function renderGroupEditor() {
+    const host = byId('filterGroupEditor');
+    host.replaceChildren();
+    const group = state.groups.find(
+      (entry) => entry.id === state.activeGroupId,
+    );
+    if (!group) return;
+
+    const editor = document.createElement('div');
+    editor.className = 'group-editor';
+    const heading = document.createElement('div');
+    heading.className = 'group-name-row';
+    const nameInput = document.createElement('input');
+    nameInput.id = 'activeGroupName';
+    nameInput.className = 'group-name-input';
+    nameInput.type = 'text';
+    nameInput.maxLength = 40;
+    nameInput.placeholder = '組合名稱';
+    nameInput.value = group.name;
+    nameInput.setAttribute('aria-label', '組合名稱');
+    nameInput.addEventListener('input', () => {
+      group.name = nameInput.value;
+      saveGroups();
+      renderGroupTabs();
+    });
+    const enabledLabel = document.createElement('label');
+    enabledLabel.className = 'group-enabled';
+    const enabled = document.createElement('input');
+    enabled.type = 'checkbox';
+    enabled.checked = group.enabled;
+    enabled.addEventListener('change', () => {
+      group.enabled = enabled.checked;
+      saveGroups();
+      applyFilters();
+    });
+    enabledLabel.append(enabled, document.createTextNode('啟用'));
+    heading.append(enabledLabel);
+
+    editor.append(
+      heading,
+      nameInput,
+      renderCriteriaSection(group, '包含條件', 'Include', 'includeJoin'),
+      renderCriteriaSection(group, '排除條件', 'Exclude', 'excludeJoin'),
+    );
+    host.append(editor);
+  }
+
+  function groupMatchesField(text, rawTerms) {
+    const terms = splitTerms(rawTerms);
+    if (!terms.length) return null;
+    const value = normalize(text).toLocaleLowerCase();
+    return terms.some((term) => value.includes(term));
+  }
+
+  function groupMatches(item, group) {
+    const includeChecks = [
+      groupMatchesField(item.title, group.titleInclude),
+      groupMatchesField(item.agency, group.agencyInclude),
+    ].filter((value) => value !== null);
+    const includeMatches =
+      !includeChecks.length ||
+      (group.includeJoin === 'OR'
+        ? includeChecks.some(Boolean)
+        : includeChecks.every(Boolean));
+    if (!includeMatches) return false;
+
+    const excludeChecks = [
+      groupMatchesField(item.title, group.titleExclude),
+      groupMatchesField(item.agency, group.agencyExclude),
+    ].filter((value) => value !== null);
+    const excluded =
+      excludeChecks.length > 0 &&
+      (group.excludeJoin === 'AND'
+        ? excludeChecks.every(Boolean)
+        : excludeChecks.some(Boolean));
+    return !excluded;
+  }
+
+  function rowsForGroup(group) {
+    return state.items.filter((item) => groupMatches(item, group));
+  }
+
+  function groupHasCriteria(group) {
+    return [
+      group.titleInclude,
+      group.agencyInclude,
+      group.titleExclude,
+      group.agencyExclude,
+    ].some((value) => splitTerms(value).length > 0);
+  }
+
+  function resultSets() {
+    const activeGroups = state.appliedGroups.filter(
+      (group) => group.enabled && groupHasCriteria(group),
+    );
+    const byGroup = activeGroups.map((group) => ({
+      group,
+      rows: rowsForGroup(group),
+    }));
+    const union = new Map();
+    byGroup.forEach(({ rows }) =>
+      rows.forEach((item) => union.set(itemKey(item), item)),
+    );
+    const allRows = activeGroups.length
+      ? Array.from(union.values())
+      : state.items.slice();
+    return { activeGroups, byGroup, allRows };
+  }
+
+  function visibleRows() {
+    const sets = resultSets();
+    if (state.activeResultId === 'all') return sets.allRows;
+    const selected = sets.byGroup.find(
+      ({ group }) => group.id === state.activeResultId,
+    );
+    return selected ? selected.rows : sets.allRows;
+  }
+
+  function renderResultTabs(sets) {
+    const host = byId('resultTabs');
+    host.replaceChildren();
+    const tabs = [
+      { id: 'all', label: '全部結果', count: sets.allRows.length },
+    ].concat(
+      sets.byGroup.map(({ group, rows }) => ({
+        id: group.id,
+        label: group.name || '查詢組合',
+        count: rows.length,
+      })),
+    );
+    if (!tabs.some((tab) => tab.id === state.activeResultId))
+      state.activeResultId = 'all';
+    tabs.forEach((tab) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className =
+        'result-tab' + (tab.id === state.activeResultId ? ' is-active' : '');
+      button.setAttribute('role', 'tab');
+      button.setAttribute(
+        'aria-selected',
+        String(tab.id === state.activeResultId),
+      );
+      button.textContent = tab.label + ' (' + tab.count.toLocaleString() + ')';
+      button.addEventListener('click', () => {
+        state.activeResultId = tab.id;
+        render();
+      });
+      host.append(button);
     });
   }
 
   function setDataset(payload) {
     state.selected.clear();
     state.detailTexts = [];
-    state.date = payload.date || '';
+    state.date = normalizeDate(payload.from || payload.date, todayInTaipei());
+    state.dateTo = normalizeDate(payload.to || payload.date, state.date);
     state.loadError = payload.message || '';
+    const seenItems = new Set();
     state.items = Array.isArray(payload.items)
-      ? payload.items.filter((item) => item && item.id && item.title)
+      ? payload.items
+          .filter((item) => item && item.id && item.title)
+          .map((item) => ({
+            ...item,
+            date: normalizeDate(item.date, state.date),
+          }))
+          .filter((item) => {
+            const key = itemKey(item);
+            if (seenItems.has(key)) return false;
+            seenItems.add(key);
+            return true;
+          })
+          .sort((left, right) => right.date.localeCompare(left.date))
       : [];
-    state.filtersActive = false;
-    state.filters = {
-      titleInclude: [],
-      agencyInclude: [],
-      titleExclude: [],
-      agencyExclude: [],
-    };
     byId('detailResults').replaceChildren();
     byId('copyDetails').disabled = true;
     byId('detailsStatus').textContent = '請先選擇標案';
     byId('fetchDetails').disabled = true;
-    render();
+    applyFilters();
   }
 
-  async function loadToday() {
-    const expectedDate = todayInTaipei();
-    try {
-      const payload = await requestApi('listbydate', {
-        date: expectedDate.replace(/-/g, ''),
-      });
-      const items = getApiRecords(payload)
-        .map((record) => apiRecordToItem(record, expectedDate))
-        .filter(
-          (item) =>
-            item.id && item.title && ALLOWED_ANNOUNCEMENT_TYPES.has(item.type),
-        );
+  async function loadArchive() {
+    const response = await fetch('./data/recent.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error('找不到每日標案資料，請稍後重新整理');
+    const archive = await response.json();
+    if (!archive || !Array.isArray(archive.items)) {
+      throw new Error('每日標案資料格式錯誤');
+    }
+    state.archiveItems = archive.items
+      .filter((item) => item && item.id && item.title)
+      .map((item) => ({ ...item, date: normalizeDate(item.date) }))
+      .filter((item) => item.date);
+    return archive;
+  }
 
-      if (!items.length) {
-        setDataset({
-          date: expectedDate,
-          items: [],
-          message: '今日沒有符合原有公告類型的標案資料。',
-        });
-        return;
-      }
-      setDataset({ date: expectedDate, items: items, status: 'success' });
-    } catch (error) {
+  async function loadDateRange(from, to) {
+    if (state.detailsLoading) return;
+    const version = ++state.dateLoadVersion;
+    state.dateLoading = true;
+    setDateControlsDisabled(state.detailsLoading);
+    state.date = from;
+    state.dateTo = to;
+    state.loadError = '';
+    state.items = [];
+    state.selected.clear();
+    state.detailTexts = [];
+    byId('detailResults').replaceChildren();
+    byId('copyDetails').disabled = true;
+    byId('detailsStatus').textContent = '請先選擇標案';
+    render();
+    try {
+      await state.archivePromise;
+      if (version !== state.dateLoadVersion) return;
+      const items = state.archiveItems.filter(
+        (item) =>
+          item.date >= from &&
+          item.date <= to &&
+          ALLOWED_ANNOUNCEMENT_TYPES.has(normalize(item.type)),
+      );
       setDataset({
-        date: expectedDate,
-        items: [],
-        message: '清單載入失敗，或非上班日無標案資訊。',
+        from,
+        to,
+        items,
+        message: items.length ? '' : '所選日期沒有符合原有公告類型的標案資料',
       });
+    } catch (error) {
+      if (version !== state.dateLoadVersion) return;
+      setDataset({
+        from,
+        to,
+        items: [],
+        message: error.message || '公告資料載入失敗，請稍後再試',
+      });
+    } finally {
+      if (version === state.dateLoadVersion) {
+        state.dateLoading = false;
+        setDateControlsDisabled(state.detailsLoading);
+      }
     }
   }
 
-  function matchesAny(text, terms) {
-    if (!terms.length) return true;
-    const value = normalize(text).toLocaleLowerCase();
-    return terms.some((term) => value.includes(term));
+  function setupDateControls() {
+    const today = todayInTaipei();
+    const oldest = shiftDate(today, -13);
+    ['dateFrom', 'dateTo'].forEach((id) => {
+      byId(id).min = oldest;
+      byId(id).max = today;
+      byId(id).value = today;
+    });
+    document.querySelectorAll('[data-date-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.dateMode = button.dataset.dateMode;
+        document.querySelectorAll('[data-date-mode]').forEach((entry) => {
+          const active = entry === button;
+          entry.classList.toggle('is-active', active);
+          entry.setAttribute('aria-pressed', String(active));
+        });
+        byId('customDateRange').hidden = state.dateMode !== 'custom';
+        if (state.dateMode === 'custom') {
+          if (!byId('dateFrom').value)
+            byId('dateFrom').value = state.date || today;
+          if (!byId('dateTo').value)
+            byId('dateTo').value = state.dateTo || today;
+        }
+      });
+    });
   }
 
-  function isVisible(item) {
-    if (!state.filtersActive) return true;
-    const title = normalize(item.title).toLocaleLowerCase();
-    const agency = normalize(item.agency).toLocaleLowerCase();
-    return (
-      matchesAny(title, state.filters.titleInclude) &&
-      matchesAny(agency, state.filters.agencyInclude) &&
-      !state.filters.titleExclude.some((term) => title.includes(term)) &&
-      !state.filters.agencyExclude.some((term) => agency.includes(term))
-    );
+  function setDateControlsDisabled(disabled) {
+    const shouldDisable = disabled || state.dateLoading;
+    document.querySelectorAll('[data-date-mode]').forEach((button) => {
+      button.disabled = shouldDisable;
+    });
+    byId('dateFrom').disabled = shouldDisable;
+    byId('dateTo').disabled = shouldDisable;
+    byId('applyFilters').disabled = shouldDisable;
   }
 
   function makeCell(text, className) {
@@ -205,16 +602,18 @@
   }
 
   function render() {
-    const rows = state.items.filter(isVisible);
+    const sets = resultSets();
+    const rows = visibleRows();
     const body = byId('tenderRows');
     const fragment = document.createDocumentFragment();
     body.replaceChildren();
+    renderResultTabs(sets);
     byId('visibleCount').textContent =
       '顯示 ' +
       rows.length.toLocaleString() +
       ' / ' +
       state.items.length.toLocaleString() +
-      ' 件，已選取 ' +
+      ' 件 · 已選 ' +
       state.selected.size +
       ' / ' +
       MAX_SELECTIONS +
@@ -226,8 +625,8 @@
 
     if (!rows.length) {
       byId('emptyList').textContent = state.items.length
-        ? '沒有符合目前篩選條件的標案'
-        : state.loadError || '目前沒有可顯示的今日標案';
+        ? '此結果分頁沒有符合條件的標案'
+        : state.loadError || '目前沒有可顯示的標案';
     }
 
     rows.forEach((item) => {
@@ -250,7 +649,11 @@
       selectCell.append(checkbox);
       row.append(selectCell);
 
-      row.append(makeCell(item.type), makeCell(item.agency));
+      row.append(
+        makeCell(item.date.replace(/-/g, '/')),
+        makeCell(item.type),
+        makeCell(item.agency),
+      );
 
       const titleCell = document.createElement('td');
       const titleLink = document.createElement('a');
@@ -276,15 +679,8 @@
 
   function applyFilters() {
     if (state.detailsLoading) return;
-    state.filters = {
-      titleInclude: splitTerms(byId('titleInclude').value),
-      agencyInclude: splitTerms(byId('agencyInclude').value),
-      titleExclude: splitTerms(byId('titleExclude').value),
-      agencyExclude: splitTerms(byId('agencyExclude').value),
-    };
-    state.filtersActive = Object.values(state.filters).some(
-      (terms) => terms.length > 0,
-    );
+    state.appliedGroups = state.groups.map(copyGroup);
+    state.activeResultId = 'all';
     state.selected.clear();
     byId('detailResults').replaceChildren();
     state.detailTexts = [];
@@ -293,27 +689,64 @@
     render();
   }
 
+  function applySelectedDateAndFilters() {
+    if (state.detailsLoading) return;
+    const today = todayInTaipei();
+    const oldest = shiftDate(today, -13);
+    let from;
+    let to;
+
+    if (state.dateMode === 'today') {
+      from = today;
+      to = today;
+    } else if (state.dateMode === 'last14') {
+      from = oldest;
+      to = today;
+    } else {
+      from = normalizeDate(byId('dateFrom').value);
+      to = normalizeDate(byId('dateTo').value);
+      const invalid =
+        !from ||
+        !to ||
+        from > to ||
+        from < oldest ||
+        to > today ||
+        Math.round(
+          (Date.parse(to + 'T00:00:00Z') - Date.parse(from + 'T00:00:00Z')) /
+            86400000,
+        ) >= 14;
+      if (invalid) return;
+    }
+
+    if (from !== state.date || to !== state.dateTo) {
+      loadDateRange(from, to);
+      return;
+    }
+    applyFilters();
+  }
+
   function resetFilters() {
     if (state.detailsLoading) return;
-    Object.keys(FILTER_STORAGE).forEach((id) => {
-      byId(id).value = '';
-      try {
-        localStorage.removeItem(FILTER_STORAGE[id]);
-      } catch (_) {}
-    });
-    state.filters = {
-      titleInclude: [],
-      agencyInclude: [],
-      titleExclude: [],
-      agencyExclude: [],
-    };
-    state.filtersActive = false;
+    const group = state.groups.find(
+      (entry) => entry.id === state.activeGroupId,
+    );
+    if (!group) return;
+    group.titleInclude = '';
+    group.agencyInclude = '';
+    group.titleExclude = '';
+    group.agencyExclude = '';
+    group.includeJoin = 'AND';
+    group.excludeJoin = 'AND';
+    saveGroups();
+    renderGroupTabs();
+    renderGroupEditor();
+    state.activeResultId = 'all';
     state.selected.clear();
     state.detailTexts = [];
     byId('detailResults').replaceChildren();
     byId('copyDetails').disabled = true;
     byId('detailsStatus').textContent = '';
-    render();
+    applyFilters();
   }
 
   function requestApi(action, params) {
@@ -323,7 +756,7 @@
           APPS_SCRIPT_URL,
         )
       ) {
-        reject(new Error('尚未設定部署網址。'));
+        reject(new Error('尚未設定部署網址'));
         return;
       }
 
@@ -362,9 +795,9 @@
         resolve(payload);
       };
       script.onerror = () =>
-        fail(new Error('無法連線到，請確認部署網址和存取權限。'));
+        fail(new Error('無法連線到，請確認部署網址和存取權限'));
       timeoutId = window.setTimeout(
-        () => fail(new Error('回應逾時，請稍後再試。')),
+        () => fail(new Error('回應逾時，請稍後再試')),
         30000,
       );
       script.src = endpoint.toString();
@@ -387,23 +820,6 @@
   function getApiRecords(payload) {
     if (Array.isArray(payload)) return payload;
     return Array.isArray(payload.records) ? payload.records : [];
-  }
-
-  function apiRecordToItem(record, date) {
-    const brief =
-      record.brief && typeof record.brief === 'object' ? record.brief : {};
-    return {
-      agency: normalize(
-        record.unit_name || record.dept_name || brief.unit_name,
-      ),
-      title: normalize(brief.title || record.title),
-      id: normalize(record.job_number || record.tender_id),
-      type: normalize(brief.type || record.type),
-      date: normalize(record.date) || date,
-      unit_id: normalize(record.unit_id),
-      filename: normalize(record.filename),
-      url: normalize(record.unit_url || record.pcc_url || record.url),
-    };
   }
 
   function comparableText(value) {
@@ -438,7 +854,12 @@
       );
       if (filenameMatches.length === 1) return filenameMatches[0];
     }
-    const candidates = records
+    const expectedDate = normalizeDate(item.date);
+    const sameDateRecords = expectedDate
+      ? records.filter((record) => normalizeDate(record.date) === expectedDate)
+      : [];
+    const sourceRecords = sameDateRecords.length ? sameDateRecords : records;
+    const candidates = sourceRecords
       .map((record) => {
         const apiNumber = normalize(record.job_number);
         const apiTitle = comparableText(getApiTitle(record));
@@ -488,12 +909,9 @@
     )[0];
   }
 
-  async function findApiRecord(item, dailyRecords) {
-    const dailyMatch = matchApiRecord(item, dailyRecords);
-    if (dailyMatch) return dailyMatch;
-
-    // The current tender page can include still-open notices published before today.
-    // Search by title when today's publication index does not contain the selected notice.
+  async function findApiRecord(item) {
+    // Listing comes from the locally archived daily snapshot; only look up a record
+    // when the user explicitly requests details for a selected notice.
     const searchPayload = await requestApi('searchbytitle', {
       query: item.title,
       page: '1',
@@ -505,7 +923,7 @@
     const records = getApiRecords(payload);
     if (!records.length) {
       if (payload && payload.detail) return payload;
-      throw new Error('沒有回傳公告內容。');
+      throw new Error('沒有回傳公告內容');
     }
     const filename = normalize(apiIndexRecord.filename);
     if (filename) {
@@ -522,7 +940,7 @@
       return !recordDate || recordDate === dateKey;
     });
     if (!candidates.length) {
-      throw new Error('沒有回傳相符日期的公告版本。');
+      throw new Error('沒有回傳相符日期的公告版本');
     }
     const expectedType = comparableText(getApiType(apiIndexRecord));
     // The type is a fallback disambiguator; keep the single date match even if labels differ.
@@ -599,8 +1017,8 @@
 
   function formatDetails(fields) {
     return [
+      fields.agency,
       fields.unit,
-      fields.title,
       fields.budget,
       fields.deadline,
       fields.method,
@@ -615,7 +1033,7 @@
     card.className = 'detail-card';
     const heading = document.createElement('h3');
     heading.textContent =
-      index + 1 + '. ' + normalize(item.agency) + '｜' + normalize(item.id);
+      index + 1 + '. ' + normalize(item.title) + '｜' + normalize(item.id);
     const status = document.createElement('p');
     status.className = 'muted detail-status';
     status.textContent = '等待查詢…';
@@ -631,12 +1049,12 @@
   }
 
   async function loadDetailsFor(item, apiRecord) {
-    if (!apiRecord.unit_id) throw new Error('沒有此案的機關代碼。');
+    if (!apiRecord.unit_id) throw new Error('沒有此案的機關代碼');
     const payload = await requestApi('tender', {
       unit_id: apiRecord.unit_id,
       job_number: apiRecord.job_number || item.id,
     });
-    const announcement = chooseAnnouncement(payload, apiRecord, state.date);
+    const announcement = chooseAnnouncement(payload, apiRecord, item.date);
     return announcementFields(announcement, apiRecord, item);
   }
 
@@ -644,6 +1062,7 @@
     const items = Array.from(state.selected.values());
     if (!items.length) return;
     state.detailsLoading = true;
+    setDateControlsDisabled(true);
     render();
     state.detailTexts = new Array(items.length);
     byId('detailResults').replaceChildren();
@@ -654,11 +1073,6 @@
     const cards = items.map(createDetailCard);
 
     try {
-      const dateKey = state.date.replace(/-/g, '');
-      const dailyPayload = await requestApi('listbydate', { date: dateKey });
-      const apiRecords = getApiRecords(dailyPayload);
-      if (!apiRecords.length) throw new Error('無今日的標案索引資料。');
-
       let cursor = 0;
       let completed = 0;
       async function worker() {
@@ -668,20 +1082,25 @@
           const item = items[index];
           const card = cards[index];
           try {
-            const apiRecord = await findApiRecord(item, apiRecords);
+            const apiRecord = await findApiRecord(item);
             if (!apiRecord)
               throw new Error(
-                '找不到相符的標案資料，請核對案號、機關及標案名稱。',
+                '找不到相符的標案資料，請核對案號、機關及標案名稱',
               );
             const fields = await loadDetailsFor(item, apiRecord);
             const text = formatDetails(fields);
             state.detailTexts[index] = [
-              card.heading.textContent,
-              text,
+              '### ' + card.heading.textContent,
+              fields.agency,
+              fields.unit,
+              fields.budget,
+              fields.deadline,
+              fields.method,
+              fields.awardMethod,
               fields.url,
             ]
-              .filter(Boolean)
-              .join('\n');
+              .filter((value) => value && value !== '未提供')
+              .join('\n\n');
             card.status.hidden = true;
             card.pre.textContent = text;
             card.urlLink.href = fields.url;
@@ -690,16 +1109,12 @@
           } catch (error) {
             const message =
               error && error.name === 'AbortError'
-                ? '查詢逾時，請稍後再試。'
-                : '此標案詳細資料暫時無法載入，請稍後再試。';
+                ? '查詢逾時，請稍後再試'
+                : '此標案詳細資料暫時無法載入，請稍後再試';
             card.status.textContent = message;
             card.status.classList.add('status-error');
             card.pre.textContent =
-              normalize(item.agency) +
-              '｜' +
-              normalize(item.title) +
-              '\n標案案號：' +
-              normalize(item.id);
+              normalize(item.agency);
           }
           completed += 1;
           byId('detailsStatus').textContent =
@@ -712,8 +1127,8 @@
     } catch (error) {
       const message =
         error && error.name === 'AbortError'
-          ? '查詢逾時，請稍後再試。'
-          : '標案詳細資料暫時無法載入，請稍後再試。';
+          ? '查詢逾時，請稍後再試'
+          : '標案詳細資料暫時無法載入，請稍後再試';
       cards.forEach((card) => {
         card.status.textContent = message;
         card.status.classList.add('status-error');
@@ -722,6 +1137,7 @@
     } finally {
       state.detailTexts = state.detailTexts.filter(Boolean);
       state.detailsLoading = false;
+      setDateControlsDisabled(false);
       byId('copyDetails').disabled = state.detailTexts.length === 0;
       byId('fetchDetails').disabled = state.selected.size === 0;
       render();
@@ -756,16 +1172,17 @@
   }
 
   function downloadExcel() {
-    const rows = state.items.filter(isVisible);
+    const rows = visibleRows();
     if (!rows.length) return;
     if (!window.XLSX) {
-      window.alert('元件尚未載入，請重新整理後再試。');
+      window.alert('元件尚未載入，請重新整理後再試');
       return;
     }
 
     const values = [
-      ['公告類型', '機關名稱', '標案名稱', '標案案號', '網址'],
+      ['公告日期', '公告類型', '機關名稱', '標案名稱', '標案案號', '網址'],
       ...rows.map((item) => [
+        item.date,
         normalize(item.type),
         normalize(item.agency),
         normalize(item.title),
@@ -775,6 +1192,7 @@
     ];
     const worksheet = window.XLSX.utils.aoa_to_sheet(values);
     worksheet['!cols'] = [
+      { wch: 14 },
       { wch: 32 },
       { wch: 30 },
       { wch: 60 },
@@ -783,7 +1201,10 @@
     ];
     const workbook = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(workbook, worksheet, '篩選標案');
-    const date = (state.date || todayInTaipei()).replace(/-/g, '');
+    const date =
+      state.date === state.dateTo
+        ? (state.date || todayInTaipei()).replace(/-/g, '')
+        : state.date.replace(/-/g, '') + '-' + state.dateTo.replace(/-/g, '');
     window.XLSX.writeFile(workbook, '篩選標案_' + date + '.xlsx', {
       compression: true,
     });
@@ -807,8 +1228,17 @@
     });
   }
 
-  byId('applyFilters').addEventListener('click', applyFilters);
+  byId('applyFilters').addEventListener('click', applySelectedDateAndFilters);
   byId('resetFilters').addEventListener('click', resetFilters);
+  byId('addFilterGroup').addEventListener('click', () => {
+    if (state.groups.length >= MAX_FILTER_GROUPS) return;
+    const group = newFilterGroup('查詢組合 ' + (state.groups.length + 1));
+    state.groups.push(group);
+    state.activeGroupId = group.id;
+    saveGroups();
+    renderGroupTabs();
+    renderGroupEditor();
+  });
   byId('clearSelection').addEventListener('click', () => {
     if (state.detailsLoading) return;
     state.selected.clear();
@@ -819,8 +1249,12 @@
   byId('downloadExcel').addEventListener('click', downloadExcel);
 
   setupCollapsibleSections();
-  readFilters();
-  loadToday();
+  loadGroups();
+  renderGroupTabs();
+  renderGroupEditor();
+  setupDateControls();
+  state.archivePromise = loadArchive();
+  loadDateRange(todayInTaipei(), todayInTaipei());
 
   window.TenderApp = {
     loadCollected(payload) {
@@ -828,6 +1262,7 @@
       if (!payload || !Array.isArray(payload.items)) return;
       setDataset({
         date: payload.date || today,
+        to: payload.date || today,
         items: payload.items,
         status: 'success',
       });
