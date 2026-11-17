@@ -45,6 +45,7 @@
     detailsLoading: false,
     loadError: '',
   };
+  let draggedGroupId = '';
   const byId = (id) => document.getElementById(id);
 
   function todayInTaipei() {
@@ -210,11 +211,71 @@
   function renderGroupTabs() {
     const tabs = byId('filterGroupTabs');
     tabs.replaceChildren();
+    const clearDropMarkers = () => {
+      tabs.querySelectorAll('.drop-before, .drop-after').forEach((item) => {
+        item.classList.remove('drop-before', 'drop-after');
+      });
+    };
     state.groups.forEach((group, index) => {
       const tabItem = document.createElement('div');
       tabItem.className =
         'group-tab-item' +
         (group.id === state.activeGroupId ? ' is-active' : '');
+      tabItem.draggable = state.groups.length > 1;
+      tabItem.addEventListener('dragstart', (event) => {
+        if (event.target.closest('.remove-group-button')) {
+          event.preventDefault();
+          return;
+        }
+        draggedGroupId = group.id;
+        tabItem.classList.add('is-dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', group.id);
+      });
+      tabItem.addEventListener('dragover', (event) => {
+        if (!draggedGroupId || draggedGroupId === group.id) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        clearDropMarkers();
+        const after =
+          event.clientX >
+          tabItem.getBoundingClientRect().left +
+            tabItem.getBoundingClientRect().width / 2;
+        tabItem.classList.add(after ? 'drop-after' : 'drop-before');
+      });
+      tabItem.addEventListener('dragleave', (event) => {
+        if (!tabItem.contains(event.relatedTarget)) {
+          tabItem.classList.remove('drop-before', 'drop-after');
+        }
+      });
+      tabItem.addEventListener('drop', (event) => {
+        if (!draggedGroupId) return;
+        event.preventDefault();
+        const sourceIndex = state.groups.findIndex(
+          (entry) => entry.id === draggedGroupId,
+        );
+        const targetIndex = state.groups.findIndex(
+          (entry) => entry.id === group.id,
+        );
+        if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+          return;
+        }
+        const rect = tabItem.getBoundingClientRect();
+        let insertIndex = targetIndex + (event.clientX > rect.left + rect.width / 2 ? 1 : 0);
+        const [movedGroup] = state.groups.splice(sourceIndex, 1);
+        if (sourceIndex < insertIndex) insertIndex -= 1;
+        state.groups.splice(insertIndex, 0, movedGroup);
+        draggedGroupId = '';
+        saveGroups();
+        state.appliedGroups = state.groups.map(copyGroup);
+        renderGroupTabs();
+        render();
+      });
+      tabItem.addEventListener('dragend', () => {
+        draggedGroupId = '';
+        clearDropMarkers();
+        tabItem.classList.remove('is-dragging');
+      });
       const button = document.createElement('button');
       button.type = 'button';
       button.className =
@@ -233,6 +294,7 @@
       tabItem.append(button);
       const remove = document.createElement('button');
       remove.type = 'button';
+      remove.draggable = false;
       remove.className = 'remove-group-button';
       const removeIcon = document.createElement('span');
       removeIcon.className = 'remove-group-icon';

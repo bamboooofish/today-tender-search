@@ -330,6 +330,28 @@ input:focus-visible {
   margin-bottom: 0;
   border-bottom: 0;
 }
+.group-tab-item[draggable='true'] .group-tab {
+  cursor: grab;
+}
+.group-tab-item.is-dragging {
+  opacity: 0.4;
+}
+.group-tab-item.drop-before::before,
+.group-tab-item.drop-after::after {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  background: #1765c1;
+  content: '';
+  pointer-events: none;
+}
+.group-tab-item.drop-before::before {
+  left: 0;
+}
+.group-tab-item.drop-after::after {
+  right: 0;
+}
 .group-tab,
 .result-tab {
   flex: 0 0 auto;
