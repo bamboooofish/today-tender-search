@@ -1230,6 +1230,19 @@
     });
   }
 
+  function setupBackToTop() {
+    const button = byId('backToTop');
+    const updateVisibility = () => {
+      button.hidden = window.scrollY < 320;
+    };
+    button.addEventListener('click', () => {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    });
+    window.addEventListener('scroll', updateVisibility, { passive: true });
+    updateVisibility();
+  }
+
   byId('applyFilters').addEventListener('click', applySelectedDateAndFilters);
   byId('resetFilters').addEventListener('click', resetFilters);
   byId('addFilterGroup').addEventListener('click', () => {
@@ -1251,6 +1264,7 @@
   byId('downloadExcel').addEventListener('click', downloadExcel);
 
   setupCollapsibleSections();
+  setupBackToTop();
   loadGroups();
   renderGroupTabs();
   renderGroupEditor();

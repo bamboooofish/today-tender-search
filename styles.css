@@ -632,6 +632,32 @@ a:hover {
 .site-footer a {
   text-decoration: underline;
 }
+.back-to-top {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #173453;
+  background: #fff;
+  box-shadow: 0 4px 14px rgb(23 44 74 / 14%);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.back-to-top:hover {
+  background: #f0f6ff;
+}
+.back-to-top span {
+  font-size: 20px;
+  line-height: 1;
+}
 [hidden] {
   display: none !important;
 }
@@ -648,6 +674,9 @@ a:hover {
 }
 
 @media (max-width: 720px) {
+  .back-to-top {
+    display: none !important;
+  }
   .site-header p {
     display: none;
   }
