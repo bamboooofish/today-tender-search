@@ -25,6 +25,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -58,7 +61,23 @@ jobs:
             echo "No archive changes to commit."
           else
             git commit -m "chore: archive daily tender snapshot"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+            branch="${GITHUB_REF_NAME}"
+            for attempt in 1 2 3; do
+              git fetch origin "$branch"
+              if ! git rebase "origin/$branch"; then
+                git rebase --abort || true
+                echo "Unable to rebase the archive commit onto origin/$branch." >&2
+                exit 1
+              fi
+              if git push origin "HEAD:$branch"; then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "Unable to push the daily archive after 3 attempts." >&2
+                exit 1
+              fi
+              sleep "$attempt"
+            done
           fi
 
       - name: Configure GitHub Pages
