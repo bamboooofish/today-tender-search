@@ -623,6 +623,7 @@
       if (version === state.dateLoadVersion) {
         state.dateLoading = false;
         setDateControlsDisabled(state.detailsLoading);
+        render();
       }
     }
   }
@@ -752,11 +753,14 @@
       state.selected.size === 0 || state.detailsLoading;
     byId('downloadExcel').disabled = rows.length === 0;
     byId('emptyList').hidden = rows.length > 0;
+    byId('emptyList').classList.toggle('is-loading', state.dateLoading);
 
     if (!rows.length) {
-      byId('emptyList').textContent = state.items.length
-        ? '此結果分頁沒有符合條件的標案'
-        : state.loadError || '目前沒有可顯示的標案';
+      byId('emptyList').textContent = state.dateLoading
+        ? '正在載入標案資料，請稍候…'
+        : state.items.length
+          ? '此結果分頁沒有符合條件的標案'
+          : state.loadError || '目前沒有可顯示的標案';
     }
 
     rows.forEach((item) => {

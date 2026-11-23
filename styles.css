@@ -615,6 +615,32 @@ mark.include-keyword-highlight {
   color: #64748b;
   text-align: center;
 }
+
+.empty-state.is-loading::before {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 9px;
+  border: 2px solid #cbd5e1;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  content: '';
+  vertical-align: -2px;
+  animation: tender-loading-spin 0.8s linear infinite;
+}
+
+@keyframes tender-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-state.is-loading::before {
+    animation: none;
+  }
+}
+
 .detail-card {
   margin-top: 22px;
   padding: 15px;
