@@ -764,7 +764,11 @@
       const key = itemKey(item);
       const highlightTerms = includeTermsForItem(item, sets);
       if (state.selected.has(key)) row.classList.add('is-selected');
-      row.addEventListener('click', () => toggleSelection(item));
+      row.addEventListener('click', () => {
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed && selection.toString()) return;
+        toggleSelection(item);
+      });
 
       const selectCell = document.createElement('td');
       selectCell.className = 'select-column';
