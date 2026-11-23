@@ -3,7 +3,7 @@
 from pathlib import Path
 import json
 
-from collector import PCC_TODAY_URL, collect_today, taipei_now
+from collector import TENDER_LIST_API_URL, collect_today, taipei_now
 
 
 ROOT = Path(__file__).resolve().parent
@@ -34,11 +34,16 @@ def main():
             "status": "error",
             "message": "今日資料蒐集失敗，請稍後再查看。",
             "items": [],
-            "source": PCC_TODAY_URL,
+            "source": TENDER_LIST_API_URL,
         }
-        print("Collection failed: " + repr(error))
+        print("API collection failed: " + repr(error))
     else:
-        print("Collected " + str(len(payload["items"])) + " announcement(s) for " + payload["date"])
+        print(
+            "Collected "
+            + str(len(payload["items"]))
+            + " announcement(s) from API for "
+            + payload["date"]
+        )
 
     write_json(OUTPUT, payload)
     print("Wrote " + str(OUTPUT.relative_to(ROOT)))
