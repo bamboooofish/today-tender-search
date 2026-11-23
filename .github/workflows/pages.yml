@@ -41,7 +41,7 @@ jobs:
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.archive_state.outputs.archive_empty == 'true'
         run: python -m pip install -r requirements.txt
 
-      - name: Collect and archive today's tenders
+      - name: Collect today's tenders from API and archive
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.archive_state.outputs.archive_empty == 'true'
         run: python collect_action.py
 
