@@ -602,6 +602,14 @@ a {
 a:hover {
   text-decoration: underline;
 }
+mark.include-keyword-highlight {
+  padding: 0 0.08em;
+  border-radius: 2px;
+  color: inherit;
+  background: #fff09a;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .empty-state {
   padding: 28px 12px;
   color: #64748b;

@@ -446,6 +446,25 @@
     return !excluded;
   }
 
+  function includeTermsForItem(item, sets) {
+    const matchingGroups = sets.activeGroups.filter(
+      (group) =>
+        (state.activeResultId === 'all' ||
+          group.id === state.activeResultId) &&
+        groupMatches(item, group),
+    );
+    const titleTerms = new Set();
+    const agencyTerms = new Set();
+    matchingGroups.forEach((group) => {
+      splitTerms(group.titleInclude).forEach((term) => titleTerms.add(term));
+      splitTerms(group.agencyInclude).forEach((term) => agencyTerms.add(term));
+    });
+    return {
+      title: Array.from(titleTerms),
+      agency: Array.from(agencyTerms),
+    };
+  }
+
   function rowsForGroup(group) {
     return state.items.filter((item) => groupMatches(item, group));
   }
@@ -645,10 +664,59 @@
     byId('applyFilters').disabled = shouldDisable;
   }
 
-  function makeCell(text, className) {
+  function appendHighlightedText(container, value, terms) {
+    const text = normalize(value);
+    const uniqueTerms = Array.from(new Set((terms || []).filter(Boolean)));
+    if (!text || !uniqueTerms.length) {
+      container.textContent = text;
+      return;
+    }
+
+    const searchableText = text.toLocaleLowerCase();
+    const ranges = [];
+    uniqueTerms.forEach((term) => {
+      let start = 0;
+      while ((start = searchableText.indexOf(term, start)) !== -1) {
+        ranges.push([start, start + term.length]);
+        start += Math.max(term.length, 1);
+      }
+    });
+    if (!ranges.length) {
+      container.textContent = text;
+      return;
+    }
+
+    ranges.sort((left, right) => left[0] - right[0] || right[1] - left[1]);
+    const mergedRanges = [];
+    ranges.forEach(([start, end]) => {
+      const previous = mergedRanges[mergedRanges.length - 1];
+      if (previous && start <= previous[1]) {
+        previous[1] = Math.max(previous[1], end);
+      } else {
+        mergedRanges.push([start, end]);
+      }
+    });
+
+    let cursor = 0;
+    mergedRanges.forEach(([start, end]) => {
+      if (start > cursor) {
+        container.append(document.createTextNode(text.slice(cursor, start)));
+      }
+      const mark = document.createElement('mark');
+      mark.className = 'include-keyword-highlight';
+      mark.textContent = text.slice(start, end);
+      container.append(mark);
+      cursor = end;
+    });
+    if (cursor < text.length) {
+      container.append(document.createTextNode(text.slice(cursor)));
+    }
+  }
+
+  function makeCell(text, className, highlightTerms = []) {
     const cell = document.createElement('td');
     if (className) cell.className = className;
-    cell.textContent = normalize(text) || '—';
+    appendHighlightedText(cell, normalize(text) || '—', highlightTerms);
     return cell;
   }
 
@@ -694,6 +762,7 @@
     rows.forEach((item) => {
       const row = document.createElement('tr');
       const key = itemKey(item);
+      const highlightTerms = includeTermsForItem(item, sets);
       if (state.selected.has(key)) row.classList.add('is-selected');
       row.addEventListener('click', () => toggleSelection(item));
 
@@ -714,7 +783,7 @@
       row.append(
         makeCell(item.date.replace(/-/g, '/')),
         makeCell(item.type),
-        makeCell(item.agency),
+        makeCell(item.agency, '', highlightTerms.agency),
       );
 
       const titleCell = document.createElement('td');
@@ -722,7 +791,11 @@
       titleLink.href = officialUrl(item);
       titleLink.target = '_blank';
       titleLink.rel = 'noopener noreferrer';
-      titleLink.textContent = normalize(item.title) || '查看公告';
+      appendHighlightedText(
+        titleLink,
+        normalize(item.title) || '查看公告',
+        highlightTerms.title,
+      );
       const caseNumber = normalize(item.id);
       if (caseNumber) {
         titleLink.title = '案號：' + caseNumber;
