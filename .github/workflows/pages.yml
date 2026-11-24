@@ -17,11 +17,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  build:
     if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -88,5 +86,11 @@ jobs:
         with:
           path: dist
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
