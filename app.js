@@ -1152,6 +1152,10 @@
         pickField(entries, ['截止投標', '投標截止日期', '截止日期']) ||
         normalize(item.deadline) ||
         '未提供',
+      category:
+        typeof apiRecord.brief?.category === 'string'
+          ? apiRecord.brief.category.trim()
+          : '',
       method: pickField(entries, ['招標方式']) || '未提供',
       awardMethod: pickField(entries, ['決標方式']) || '未提供',
       url: validOfficialUrl(detail.url) || officialUrl(item),
@@ -1162,6 +1166,7 @@
     return [
       fields.agency,
       fields.unit,
+      fields.category,
       fields.budget,
       fields.deadline,
       fields.method,
@@ -1236,6 +1241,7 @@
               card.heading.textContent,
               fields.agency,
               fields.unit,
+              fields.category,
               fields.budget,
               fields.deadline,
               fields.method,
