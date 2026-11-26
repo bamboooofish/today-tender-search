@@ -5,7 +5,6 @@
   const APPS_SCRIPT_URL =
     'https://script.google.com/macros/s/AKfycbz7lV7tuMMZNmATiEnY5RCfD3Tl6z0ePGUWmkNZTSQhqvoYSlk2EzM1hFaFJ6crPaHV/exec';
   const MAX_SELECTIONS = 5;
-  const MAX_FILTER_GROUPS = 5;
   const GROUP_STORAGE_KEY = 'tender_filter_groups_v2';
   const ALLOWED_ANNOUNCEMENT_TYPES = new Set([
     '公開招標公告',
@@ -172,7 +171,7 @@
         localStorage.getItem(GROUP_STORAGE_KEY) || 'null',
       );
       if (Array.isArray(saved)) {
-        state.groups = saved.slice(0, MAX_FILTER_GROUPS).map(copyGroup);
+        state.groups = saved.map(copyGroup);
         hasSavedGroups = true;
       }
     } catch (_) {}
@@ -224,10 +223,6 @@
     if (!payload.groups.length) {
       throw new Error('檔案中沒有查詢組合。');
     }
-    if (payload.groups.length > MAX_FILTER_GROUPS) {
-      throw new Error('最多只能匯入 ' + MAX_FILTER_GROUPS + ' 個查詢組合。');
-    }
-
     const textFields = [
       'titleInclude',
       'agencyInclude',
@@ -418,7 +413,6 @@
       tabItem.append(remove);
       tabs.append(tabItem);
     });
-    byId('addFilterGroup').disabled = state.groups.length >= MAX_FILTER_GROUPS;
   }
 
   function renderJoinControl(group, key) {
@@ -1507,7 +1501,6 @@
   byId('filterGroupsFile').addEventListener('change', importFilterGroups);
   byId('exportFilterGroups').addEventListener('click', downloadFilterGroups);
   byId('addFilterGroup').addEventListener('click', () => {
-    if (state.groups.length >= MAX_FILTER_GROUPS) return;
     const group = newFilterGroup('查詢組合 ' + (state.groups.length + 1));
     state.groups.push(group);
     state.activeGroupId = group.id;
