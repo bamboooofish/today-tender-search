@@ -191,6 +191,112 @@
     state.activeGroupId = state.groups[0] ? state.groups[0].id : '';
   }
 
+  function downloadFilterGroups() {
+    const payload = {
+      format: 'tender-filter-groups',
+      version: 1,
+      groups: state.groups.map(copyGroup),
+    };
+    const file = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '查詢組合-' + todayInTaipei() + '.json';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function parseImportedFilterGroups(payload) {
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      Array.isArray(payload) ||
+      payload.format !== 'tender-filter-groups' ||
+      payload.version !== 1 ||
+      !Array.isArray(payload.groups)
+    ) {
+      throw new Error('檔案格式不正確，請選擇查詢組合 JSON 檔。');
+    }
+    if (!payload.groups.length) {
+      throw new Error('檔案中沒有查詢組合。');
+    }
+    if (payload.groups.length > MAX_FILTER_GROUPS) {
+      throw new Error('最多只能匯入 ' + MAX_FILTER_GROUPS + ' 個查詢組合。');
+    }
+
+    const textFields = [
+      'titleInclude',
+      'agencyInclude',
+      'titleExclude',
+      'agencyExclude',
+    ];
+    const groupsAreValid = payload.groups.every(
+      (group) =>
+        group &&
+        typeof group === 'object' &&
+        !Array.isArray(group) &&
+        typeof group.name === 'string' &&
+        group.name.trim() &&
+        typeof group.enabled === 'boolean' &&
+        textFields.every((field) => typeof group[field] === 'string') &&
+        ['AND', 'OR'].includes(group.includeJoin) &&
+        ['AND', 'OR'].includes(group.excludeJoin),
+    );
+    if (!groupsAreValid) {
+      throw new Error('查詢組合資料不完整或格式不正確。');
+    }
+
+    return payload.groups.map((group) => {
+      const imported = copyGroup(group);
+      imported.id = newFilterGroup().id;
+      return imported;
+    });
+  }
+
+  async function importFilterGroups(event) {
+    const input = event.currentTarget;
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+
+    let payload;
+    try {
+      payload = JSON.parse(await file.text());
+    } catch (_) {
+      window.alert('匯入失敗：檔案不是有效的 JSON。');
+      return;
+    }
+
+    let groups;
+    try {
+      groups = parseImportedFilterGroups(payload);
+    } catch (error) {
+      window.alert('匯入失敗：' + error.message);
+      return;
+    }
+
+    if (state.detailsLoading) {
+      window.alert('明細載入中，請稍後再匯入。');
+      return;
+    }
+    if (
+      !window.confirm('匯入會取代目前所有查詢組合，確定要繼續嗎？')
+    ) {
+      return;
+    }
+
+    state.groups = groups;
+    state.activeGroupId = groups[0].id;
+    saveGroups();
+    renderGroupTabs();
+    renderGroupEditor();
+    applyFilters();
+  }
+
   function deleteFilterGroup(groupId) {
     const removedIndex = state.groups.findIndex(
       (group) => group.id === groupId,
@@ -870,6 +976,7 @@
 
   function resetFilters() {
     if (state.detailsLoading) return;
+    if (!window.confirm('確定清除此查詢組合內容？')) return;
     const group = state.groups.find(
       (entry) => entry.id === state.activeGroupId,
     );
@@ -1394,6 +1501,11 @@
 
   byId('applyFilters').addEventListener('click', applySelectedDateAndFilters);
   byId('resetFilters').addEventListener('click', resetFilters);
+  byId('importFilterGroups').addEventListener('click', () => {
+    byId('filterGroupsFile').click();
+  });
+  byId('filterGroupsFile').addEventListener('change', importFilterGroups);
+  byId('exportFilterGroups').addEventListener('click', downloadFilterGroups);
   byId('addFilterGroup').addEventListener('click', () => {
     if (state.groups.length >= MAX_FILTER_GROUPS) return;
     const group = newFilterGroup('查詢組合 ' + (state.groups.length + 1));

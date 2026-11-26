@@ -95,8 +95,21 @@
           <div class="filter-group">
             <div class="filter-group-heading">
               <h3>查詢組合</h3>
-              <div id="filterGroupTabs" class="filter-group-tabs" role="tablist" aria-label="查詢組合"></div>
-              <button class="button button-outline" id="addFilterGroup" type="button">＋新增</button>
+              <div class="filter-group-tab-row">
+                <div id="filterGroupTabs" class="filter-group-tabs" role="tablist" aria-label="查詢組合"></div>
+                <button class="filter-group-add" id="addFilterGroup" type="button">＋新增</button>
+              </div>
+              <div class="filter-group-actions">
+                <button class="filter-group-action" id="importFilterGroups" type="button">
+                  <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 10V2m0 0L5 5m3-3 3 3M2.5 9v4h11V9" /></svg>
+                  <span>匯入</span>
+                </button>
+                <button class="filter-group-action" id="exportFilterGroups" type="button">
+                  <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 2v8m0 0 3-3m-3 3L5 7M2.5 11v2h11v-2" /></svg>
+                  <span>匯出</span>
+                </button>
+              </div>
+              <input id="filterGroupsFile" type="file" accept=".json,application/json" hidden />
             </div>
             <div id="filterGroupEditor"></div>
           </div>
