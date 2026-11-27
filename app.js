@@ -278,9 +278,7 @@
       window.alert('明細載入中，請稍後再匯入。');
       return;
     }
-    if (
-      !window.confirm('匯入會取代目前所有查詢組合，確定要繼續嗎？')
-    ) {
+    if (!window.confirm('匯入會取代目前所有查詢組合，確定要繼續嗎？')) {
       return;
     }
 
@@ -362,7 +360,8 @@
           return;
         }
         const rect = tabItem.getBoundingClientRect();
-        let insertIndex = targetIndex + (event.clientX > rect.left + rect.width / 2 ? 1 : 0);
+        let insertIndex =
+          targetIndex + (event.clientX > rect.left + rect.width / 2 ? 1 : 0);
         const [movedGroup] = state.groups.splice(sourceIndex, 1);
         if (sourceIndex < insertIndex) insertIndex -= 1;
         state.groups.splice(insertIndex, 0, movedGroup);
@@ -549,8 +548,7 @@
   function includeTermsForItem(item, sets) {
     const matchingGroups = sets.activeGroups.filter(
       (group) =>
-        (state.activeResultId === 'all' ||
-          group.id === state.activeResultId) &&
+        (state.activeResultId === 'all' || group.id === state.activeResultId) &&
         groupMatches(item, group),
     );
     const titleTerms = new Set();
@@ -895,10 +893,14 @@
       );
 
       const titleCell = document.createElement('td');
-      const titleLink = document.createElement('a');
-      titleLink.href = officialUrl(item);
-      titleLink.target = '_blank';
-      titleLink.rel = 'noopener noreferrer';
+      const isToday = normalizeDate(item.date, state.date) === todayInTaipei();
+      const titleLink = document.createElement(isToday ? 'a' : 'span');
+      titleLink.className = 'tender-title-text';
+      if (isToday) {
+        titleLink.href = officialUrl(item);
+        titleLink.target = '_blank';
+        titleLink.rel = 'noopener noreferrer';
+      }
       appendHighlightedText(
         titleLink,
         normalize(item.title) || '查看公告',
@@ -912,7 +914,12 @@
           normalize(item.title) + '，案號：' + caseNumber,
         );
       }
-      titleLink.addEventListener('click', (event) => event.stopPropagation());
+      titleLink.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (normalizeDate(item.date, state.date) !== todayInTaipei()) {
+          event.preventDefault();
+        }
+      });
       titleCell.append(titleLink);
       row.append(titleCell);
       fragment.append(row);
@@ -1363,8 +1370,7 @@
                 : '此標案詳細資料暫時無法載入，請稍後再試';
             card.status.textContent = message;
             card.status.classList.add('status-error');
-            card.pre.textContent =
-              normalize(item.agency);
+            card.pre.textContent = normalize(item.agency);
           }
           completed += 1;
           byId('detailsStatus').textContent =
@@ -1432,14 +1438,13 @@
     }
 
     const values = [
-      ['公告日期', '公告類型', '機關名稱', '標案名稱', '標案案號', '網址'],
+      ['公告日期', '公告類型', '機關名稱', '標案名稱', '標案案號'],
       ...rows.map((item) => [
         item.date,
         normalize(item.type),
         normalize(item.agency),
         normalize(item.title),
         normalize(item.id),
-        officialUrl(item),
       ]),
     ];
     const worksheet = window.XLSX.utils.aoa_to_sheet(values);
@@ -1449,7 +1454,6 @@
       { wch: 30 },
       { wch: 60 },
       { wch: 20 },
-      { wch: 60 },
     ];
     const workbook = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(workbook, worksheet, '篩選標案');
@@ -1486,7 +1490,9 @@
       button.hidden = window.scrollY < 320;
     };
     button.addEventListener('click', () => {
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduceMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches;
       window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     });
     window.addEventListener('scroll', updateVisibility, { passive: true });

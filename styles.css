@@ -661,6 +661,9 @@ a {
   color: #1765c1;
   text-decoration: none;
 }
+.tender-title-text {
+  color: #1765c1;
+}
 a:hover {
   text-decoration: underline;
 }
