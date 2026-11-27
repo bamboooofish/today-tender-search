@@ -775,12 +775,13 @@ mark.include-keyword-highlight {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  color: #163457;
+  color: #1765c1;
   background: transparent;
   cursor: pointer;
   transition: transform 0.16s ease;
 }
 .back-to-top:hover {
+  color: #1056a8;
   transform: translateY(-2px);
 }
 .back-to-top svg {
@@ -800,7 +801,7 @@ mark.include-keyword-highlight {
   stroke-width: 3.5;
 }
 .back-to-top:focus-visible {
-  outline: 3px solid rgb(22 52 87 / 35%);
+  outline: 3px solid rgb(23 101 193 / 35%);
   outline-offset: 3px;
 }
 [hidden] {
