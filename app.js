@@ -895,8 +895,8 @@
       const titleCell = document.createElement('td');
       const isToday = normalizeDate(item.date, state.date) === todayInTaipei();
       const titleLink = document.createElement(isToday ? 'a' : 'span');
-      titleLink.className = 'tender-title-text';
       if (isToday) {
+        titleLink.className = 'tender-title-text';
         titleLink.href = officialUrl(item);
         titleLink.target = '_blank';
         titleLink.rel = 'noopener noreferrer';
