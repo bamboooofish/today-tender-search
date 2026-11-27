@@ -35,7 +35,8 @@
               ><span class="step-title">篩選條件</span>
             </h2>
             <p class="muted step-description">
-              <span class="filter-help-desktop">每個欄位可輸入多個關鍵字，以逗號、頓號或換行分隔</span
+              <span class="filter-help-desktop"
+                >每個欄位可輸入多個關鍵字，以逗號、頓號或換行分隔</span
               ><span class="filter-help-mobile">以 , 分隔關鍵字</span>
             </p>
           </div>
@@ -79,16 +80,47 @@
           <div class="date-filter" aria-labelledby="dateFilterTitle">
             <h3 id="dateFilterTitle">公告時間</h3>
             <div class="date-mode-row">
-              <div class="segmented-control" role="group" aria-label="公告時間範圍">
-                <button class="segment-button is-active" type="button" data-date-mode="today" aria-pressed="true">今日</button>
-                <button class="segment-button" type="button" data-date-mode="last14" aria-pressed="false">近14天</button>
-                <button class="segment-button" type="button" data-date-mode="custom" aria-pressed="false">指定日期</button>
+              <div
+                class="segmented-control"
+                role="group"
+                aria-label="公告時間範圍"
+              >
+                <button
+                  class="segment-button is-active"
+                  type="button"
+                  data-date-mode="today"
+                  aria-pressed="true"
+                >
+                  今日
+                </button>
+                <button
+                  class="segment-button"
+                  type="button"
+                  data-date-mode="last14"
+                  aria-pressed="false"
+                >
+                  近14天
+                </button>
+                <button
+                  class="segment-button"
+                  type="button"
+                  data-date-mode="custom"
+                  aria-pressed="false"
+                >
+                  指定日期
+                </button>
               </div>
             </div>
             <div id="customDateRange" class="date-range-inputs" hidden>
-              <label><span class="visually-hidden">開始日期</span><input id="dateFrom" type="date" /></label>
+              <label
+                ><span class="visually-hidden">開始日期</span
+                ><input id="dateFrom" type="date"
+              /></label>
               <span aria-hidden="true">至</span>
-              <label><span class="visually-hidden">結束日期</span><input id="dateTo" type="date" /></label>
+              <label
+                ><span class="visually-hidden">結束日期</span
+                ><input id="dateTo" type="date"
+              /></label>
             </div>
           </div>
 
@@ -96,20 +128,53 @@
             <div class="filter-group-heading">
               <h3>查詢組合</h3>
               <div class="filter-group-tab-row">
-                <div id="filterGroupTabs" class="filter-group-tabs" role="tablist" aria-label="查詢組合"></div>
-                <button class="filter-group-add" id="addFilterGroup" type="button">＋新增</button>
+                <div
+                  id="filterGroupTabs"
+                  class="filter-group-tabs"
+                  role="tablist"
+                  aria-label="查詢組合"
+                ></div>
+                <button
+                  class="filter-group-add"
+                  id="addFilterGroup"
+                  type="button"
+                  aria-label="新增查詢組合"
+                  title="新增查詢組合"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9.5" />
+                    <path d="M12 7v10M7 12h10" />
+                  </svg>
+                </button>
               </div>
               <div class="filter-group-actions">
-                <button class="filter-group-action" id="importFilterGroups" type="button">
-                  <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 10V2m0 0L5 5m3-3 3 3M2.5 9v4h11V9" /></svg>
+                <button
+                  class="filter-group-action"
+                  id="importFilterGroups"
+                  type="button"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 16 16">
+                    <path d="M8 10V2m0 0L5 5m3-3 3 3M2.5 9v4h11V9" />
+                  </svg>
                   <span>匯入</span>
                 </button>
-                <button class="filter-group-action" id="exportFilterGroups" type="button">
-                  <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 2v8m0 0 3-3m-3 3L5 7M2.5 11v2h11v-2" /></svg>
+                <button
+                  class="filter-group-action"
+                  id="exportFilterGroups"
+                  type="button"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 16 16">
+                    <path d="M8 2v8m0 0 3-3m-3 3L5 7M2.5 11v2h11v-2" />
+                  </svg>
                   <span>匯出</span>
                 </button>
               </div>
-              <input id="filterGroupsFile" type="file" accept=".json,application/json" hidden />
+              <input
+                id="filterGroupsFile"
+                type="file"
+                accept=".json,application/json"
+                hidden
+              />
             </div>
             <div id="filterGroupEditor"></div>
           </div>
@@ -175,7 +240,12 @@
           </div>
         </div>
         <div class="panel-content" id="listContent">
-          <div id="resultTabs" class="result-tabs" role="tablist" aria-label="篩選結果"></div>
+          <div
+            id="resultTabs"
+            class="result-tabs"
+            role="tablist"
+            aria-label="篩選結果"
+          ></div>
           <div class="table-scroll">
             <table>
               <thead>
@@ -265,9 +335,13 @@
       class="back-to-top"
       type="button"
       aria-label="回到最上方"
+      title="回到最上方"
       hidden
     >
-      <span aria-hidden="true">↑</span>回到最上方
+      <svg aria-hidden="true" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="23" />
+        <path d="M12 12h24M24 36V20M15 29l9-9 9 9" />
+      </svg>
     </button>
 
     <footer class="site-footer">

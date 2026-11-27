@@ -302,16 +302,25 @@ input:focus-visible {
   max-width: 100%;
 }
 .filter-group-add {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
   flex: 0 0 auto;
-  min-height: 36px;
-  padding: 6px 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 0;
   color: rgb(23 101 193 / 65%);
   background: transparent;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 400;
-  white-space: nowrap;
+}
+.filter-group-add svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.7;
 }
 .filter-group-add:hover:not(:disabled) {
   color: #1056a8;
@@ -755,29 +764,44 @@ mark.include-keyword-highlight {
 }
 .back-to-top {
   position: fixed;
-  right: 24px;
+  right: max(0px, calc((100vw - 1180px) / 2 - 63px));
   bottom: 24px;
   z-index: 20;
   display: inline-flex;
+  width: 52px;
+  height: 52px;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 9px 15px;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  color: #173453;
-  background: #fff;
-  box-shadow: 0 4px 14px rgb(23 44 74 / 14%);
-  font: inherit;
-  font-weight: 650;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #163457;
+  background: transparent;
   cursor: pointer;
+  transition: transform 0.16s ease;
 }
 .back-to-top:hover {
-  background: #f0f6ff;
+  transform: translateY(-2px);
 }
-.back-to-top span {
-  font-size: 20px;
-  line-height: 1;
+.back-to-top svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.back-to-top svg circle {
+  fill: currentColor;
+}
+.back-to-top svg path {
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3.5;
+}
+.back-to-top:focus-visible {
+  outline: 3px solid rgb(22 52 87 / 35%);
+  outline-offset: 3px;
 }
 [hidden] {
   display: none !important;
